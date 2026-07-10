@@ -11,5 +11,4 @@ spec:
       kind: Rule
       services:
         - name: dashboards
-          kind: TraefikService
           port: 80

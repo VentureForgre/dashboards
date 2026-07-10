@@ -4,6 +4,7 @@ metadata:
   name: dashboards
   namespace: dashboards
 spec:
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: dashboards
   ports:
