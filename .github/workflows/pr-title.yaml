@@ -1,0 +1,21 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  validate:
+    runs-on: [self-hosted, Linux, X64, homelab]
+    steps:
+      - name: Validate PR title
+        run: |
+          title="${{ github.event.pull_request.title }}"
+          pattern="^(feat|fix|perf|refactor|docs|test|build|ci|chore|revert)(\(.+\))?!?: .+"
+          if [[ ! "$title" =~ $pattern ]]; then
+            echo "ERROR: PR title must follow conventional commit format"
+            echo "Expected: feat: description, fix(scope): description, etc."
+            echo "Got: $title"
+            exit 1
+          fi
+          echo "PR title is valid: $title"

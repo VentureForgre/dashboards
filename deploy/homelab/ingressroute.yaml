@@ -1,0 +1,15 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dashboards
+  namespace: dashboards
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`dashboards.sullylab.de`)
+      kind: Rule
+      services:
+        - name: dashboards
+          kind: TraefikService
+          port: 80

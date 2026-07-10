@@ -1,0 +1,36 @@
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: dashboards
+  namespace: dashboards
+spec:
+  provider: traefik
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: dashboards
+  service:
+    port: 80
+    targetPort: http
+  analysis:
+    interval: 1m
+    threshold: 5
+    maxWeight: 50
+    stepWeight: 10
+    metrics:
+      - name: request-success-rate
+        interval: 1m
+        thresholdRange:
+          min: 99
+      - name: request-duration
+        interval: 1m
+        thresholdRange:
+          max: 500
+    webhooks:
+      - name: load-test
+        type: rollout
+        url: http://flagger-loadtester.flagger-system/
+        timeout: 5s
+        metadata:
+          type: cmd
+          cmd: hey -z 1m -q 5 -c 2 http://dashboards-canary.dashboards/

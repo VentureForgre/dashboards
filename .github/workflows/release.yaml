@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: [self-hosted, Linux, X64, homelab]
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$latest_tag" >> $GITHUB_ENV
+          
+          # Check commits since last tag
+          commits=$(git log ${latest_tag}..HEAD --oneline 2>/dev/null || echo "")
+          
+          major=0
+          minor=0
+          patch=0
+          
+          if [[ "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+          fi
+          
+          if echo "$commits" | grep -qiE 'feat(\(.+\))?!:|BREAKING CHANGE'; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif echo "$commits" | grep -qiE '^feat(\(|:| )'; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          
+          new_tag="v${major}.${minor}.${patch}"
+          echo "new_tag=$new_tag" >> $GITHUB_ENV
+          echo "tag=$new_tag" >> $GITHUB_OUTPUT
+
+      - name: Create tag
+        run: |
+          git tag ${{ env.new_tag }}
+          git push origin ${{ env.new_tag }}
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.new_tag }}
+          release_name: ${{ env.new_tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push versioned image
+        run: |
+          docker build -t ghcr.io/ventureforgre/dashboards:${{ env.new_tag }} .
+          docker push ghcr.io/ventureforgre/dashboards:${{ env.new_tag }}
+
+      - name: Logout
+        if: always()
+        run: docker logout ghcr.io
