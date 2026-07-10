@@ -1,0 +1,39 @@
+name: Final Verify
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: [self-hosted, Linux, X64, homelab]
+    steps:
+      - name: Full verification
+        run: |
+          echo "=== Pods ==="
+          kubectl -n dashboards get pods
+          echo ""
+          echo "=== Kustomization ==="
+          kubectl -n flux-system get kustomization dashboards
+          echo ""
+          echo "=== Canary ==="
+          kubectl -n dashboards get canary
+          echo ""
+          echo "=== IngressRoute ==="
+          kubectl -n dashboards get ingressroute
+          echo ""
+          echo "=== Test internal (cluster IP) ==="
+          SVC_IP=$(kubectl -n dashboards get svc dashboards -o jsonpath='{.spec.clusterIP}')
+          echo "Service IP: $SVC_IP"
+          kubectl run curl-test --rm -it --restart=Never --image=curlimages/curl:latest -- curl -sI http://$SVC_IP:80/ 2>&1 | head -10
+          echo ""
+          echo "=== Test via Traefik ==="
+          kubectl run curl-traefik --rm -it --restart=Never --image=curlimages/curl:latest -- curl -sI -H "Host: dashboards.sullylab.de" http://traefik.traefik.svc.cluster.local:80/ 2>&1 | head -10
+          echo ""
+          echo "=== Test external URL ==="
+          curl -sI https://dashboards.sullylab.de 2>&1 | head -10 || echo "Not yet reachable externally"
+          echo ""
+          echo "=== Test dashboard pages ==="
+          curl -sI https://dashboards.sullylab.de/debt-payoff 2>&1 | head -5 || true
+          curl -sI https://dashboards.sullylab.de/roi-calculator 2>&1 | head -5 || true
+          curl -sI https://dashboards.sullylab.de/pricing-calculator 2>&1 | head -5 || true
+          curl -sI https://dashboards.sullylab.de/youtube-analytics 2>&1 | head -5 || true
