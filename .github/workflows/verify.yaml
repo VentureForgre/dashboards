@@ -15,27 +15,21 @@ jobs:
           echo "=== Kustomization ==="
           kubectl -n flux-system get kustomization dashboards
           echo ""
-          echo "=== Namespace ==="
-          kubectl get ns dashboards
-          echo ""
           echo "=== Pods ==="
           kubectl -n dashboards get pods -o wide
           echo ""
-          echo "=== Deployment ==="
-          kubectl -n dashboards get deployment
+          echo "=== Pod Events (describe) ==="
+          kubectl -n dashboards describe pods 2>&1 | tail -40
           echo ""
-          echo "=== Service ==="
-          kubectl -n dashboards get svc
+          echo "=== Deployment Events ==="
+          kubectl -n dashboards describe deployment dashboards 2>&1 | tail -20
           echo ""
-          echo "=== IngressRoute ==="
-          kubectl -n dashboards get ingressroute
-          echo ""
-          echo "=== Canary ==="
-          kubectl -n dashboards get canary
-          echo ""
-          echo "=== DNS ==="
-          kubectl get dnsendpoint -n external-dns 2>/dev/null | grep dashboards || echo "No DNS endpoint found yet"
+          echo "=== Events ==="
+          kubectl -n dashboards get events --sort-by='.lastTimestamp' 2>&1 | tail -20
           echo ""
           echo "=== Testing URL ==="
           sleep 5
           curl -sI https://dashboards.sullylab.de 2>&1 | head -10 || echo "URL not yet reachable"
+          echo ""
+          echo "=== Check image availability ==="
+          docker pull ghcr.io/ventureforgre/dashboards:main 2>&1 | tail -5 || echo "Image pull failed"
