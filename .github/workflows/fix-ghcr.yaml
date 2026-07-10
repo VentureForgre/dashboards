@@ -1,0 +1,31 @@
+name: Fix GHCR Pull Secret
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: [self-hosted, Linux, X64, homelab]
+    steps:
+      - name: Recreate ghcr-pull secret with PAT
+        run: |
+          # Delete old secret
+          kubectl -n dashboards delete secret ghcr-pull 2>/dev/null || true
+          
+          # Create new secret with PAT that has read:packages
+          kubectl -n dashboards create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username=1solomonwakhungu \
+            --docker-password='${{ secrets.GHCR_PAT }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "GHCR pull secret updated"
+          
+          # Restart the deployment to pull image
+          kubectl -n dashboards rollout restart deployment/dashboards
+          kubectl -n dashboards rollout restart deployment/dashboards-primary 2>/dev/null || true
+          
+          # Wait and check
+          sleep 30
+          kubectl -n dashboards get pods
+          kubectl -n dashboards get pods -o jsonpath='{range .items[*]}{.status.phase}{"\t"}{.status.containerStatuses[0].state}{"\n"}{end}' 2>/dev/null
