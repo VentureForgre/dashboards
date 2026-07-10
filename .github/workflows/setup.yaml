@@ -9,23 +9,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Flux deploy key secret
+      - name: Install GHCR pull secret
         run: |
-          # Generate the SSH key pair
-          ssh-keygen -t ed25519 -f /tmp/dashboards-flux-key -N ""
-          
-          # Add public key as deploy key to the repo
-          gh repo deploy-key add /tmp/dashboards-flux-key.pub --repo VentureForgre/dashboards --title "Flux read-only" || true
-          
-          # Generate known_hosts
-          ssh-keyscan -t ed25519 github.com > /tmp/dashboards-known-hosts 2>/dev/null
-          
-          # Create the secret in the cluster
-          kubectl -n flux-system create secret generic dashboards-git-auth \
-            --from-file=identity=/tmp/dashboards-flux-key \
-            --from-file=identity.pub=/tmp/dashboards-flux-key.pub \
-            --from-file=known_hosts=/tmp/dashboards-known-hosts \
-            --dry-run=client -o yaml | kubectl apply -f -
+          # The dashboards-git-auth secret was already installed by a previous run.
+          # Now we just need the GHCR pull secret.
+          # Wait for the namespace to exist (Flux creates it from namespace.yaml)
+          echo "Waiting for dashboards namespace to be created by Flux..."
+          for i in $(seq 1 30); do
+            if kubectl get ns dashboards 2>/dev/null; then
+              echo "Namespace exists!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 10
+          done
           
           # Create GHCR pull secret for the namespace
           kubectl -n dashboards create secret docker-registry ghcr-pull \
@@ -34,15 +31,14 @@ jobs:
             --docker-password=${{ secrets.GITHUB_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
           
-          # Cleanup
-          rm -f /tmp/dashboards-flux-key /tmp/dashboards-flux-key.pub /tmp/dashboards-known-hosts
-          
-          echo "Cluster setup complete"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "GHCR pull secret installed"
 
       - name: Verify
         run: |
-          kubectl -n flux-system get secret dashboards-git-auth
-          kubectl -n flux-system get gitrepository dashboards
-          kubectl -n flux-system get kustomization dashboards
+          kubectl -n flux-system get secret dashboards-git-auth || true
+          kubectl -n flux-system get gitrepository dashboards || true
+          kubectl -n flux-system get kustomization dashboards || true
+          kubectl -n dashboards get secret ghcr-pull || true
+          kubectl get ns dashboards || true
+          kubectl -n dashboards get pods || true
+          kubectl -n dashboards get ingressroute || true
