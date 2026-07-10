@@ -1,0 +1,29 @@
+name: Make Package Public
+
+on:
+  workflow_dispatch:
+
+jobs:
+  make-public:
+    runs-on: [self-hosted, Linux, X64, homelab]
+    steps:
+      - name: Make GHCR package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Try to make the package public via API
+          # First try as org package
+          curl -s -X PATCH \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/orgs/VentureForgre/packages/container/dashboards \
+            -d '{"visibility":"public"}' 2>&1 || true
+          
+          # Also try as user package (1solomonwakhungu)
+          curl -s -X PATCH \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user/packages/container/dashboards \
+            -d '{"visibility":"public"}' 2>&1 || true
+          
+          echo "Done"

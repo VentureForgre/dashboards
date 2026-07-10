@@ -15,8 +15,6 @@ spec:
       labels:
         app.kubernetes.io/name: dashboards
     spec:
-      imagePullSecrets:
-        - name: ghcr-pull
       containers:
         - name: app
           image: ghcr.io/ventureforgre/dashboards:main
@@ -28,6 +26,8 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
