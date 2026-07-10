@@ -1,0 +1,41 @@
+name: Verify Deployment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: [self-hosted, Linux, X64, homelab]
+    steps:
+      - name: Check deployment status
+        run: |
+          echo "=== GitRepository ==="
+          kubectl -n flux-system get gitrepository dashboards
+          echo ""
+          echo "=== Kustomization ==="
+          kubectl -n flux-system get kustomization dashboards
+          echo ""
+          echo "=== Namespace ==="
+          kubectl get ns dashboards
+          echo ""
+          echo "=== Pods ==="
+          kubectl -n dashboards get pods -o wide
+          echo ""
+          echo "=== Deployment ==="
+          kubectl -n dashboards get deployment
+          echo ""
+          echo "=== Service ==="
+          kubectl -n dashboards get svc
+          echo ""
+          echo "=== IngressRoute ==="
+          kubectl -n dashboards get ingressroute
+          echo ""
+          echo "=== Canary ==="
+          kubectl -n dashboards get canary
+          echo ""
+          echo "=== DNS ==="
+          kubectl get dnsendpoint -n external-dns 2>/dev/null | grep dashboards || echo "No DNS endpoint found yet"
+          echo ""
+          echo "=== Testing URL ==="
+          sleep 5
+          curl -sI https://dashboards.sullylab.de 2>&1 | head -10 || echo "URL not yet reachable"
